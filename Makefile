@@ -23,4 +23,4 @@ format:
 
 .PHONY: doc
 doc:
-	carog doc
+	cargo doc

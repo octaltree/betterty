@@ -1,10 +1,14 @@
 [package]
-name = "bettertype"
+name = "betterty"
 version = "0.0.1"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.41"
+swc_common = "0.10.21"
+swc_ecma_ast = "0.47.0"
+swc_ecma_dep_graph = "0.29.0"
 swc_ecma_parser = "0.61.0"
 syn = "1.0.73"
