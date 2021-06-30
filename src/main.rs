@@ -6,10 +6,9 @@ use swc_common::{comments::SingleThreadedComments, sync::Lrc, SourceMap};
 use swc_ecma_dep_graph::analyze_dependencies;
 
 fn main() {
-    betterty::search_dependencies(
-        Path::new("/home/octaltree/storage/repos/others/playwright/src/client/playwright.ts"),
-        Path::new("/home/octaltree/storage/repos/others/playwright/node_modules")
-    )
+    betterty::search_dependencies(Path::new(
+        "/home/octaltree/storage/repos/others/playwright/src/client/playwright.ts"
+    ))
     .unwrap();
 
     // for p in ls_rec("/home/octaltree/storage/repos/others/playwright/src") {
