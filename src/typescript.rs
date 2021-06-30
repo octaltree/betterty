@@ -14,12 +14,13 @@ mod tests {
 
     #[test]
     fn dependencies() {
-        let dir = prepare_target();
+        let commit = "e9246089";
+        let dir = prepare_target(commit);
         let file = dir.join("src/client/playwright.ts");
         search_dependencies(Path::new(&file)).unwrap();
     }
 
-    fn prepare_target() -> PathBuf {
+    fn prepare_target(commit: &str) -> PathBuf {
         let dir = std::env::temp_dir().join("betterty-playwright");
         Command::new("git")
             .args(&[
@@ -30,14 +31,23 @@ mod tests {
             .stderr(Stdio::null())
             .status()
             .unwrap();
+        cmd(&dir, &["git", "checkout", commit]);
         if !dir.join("node_modules").exists() {
-            Command::new("npm")
-                .args(&["install"])
-                .current_dir(&dir)
-                .status()
-                .unwrap();
+            cmd(&dir, &["npm", "install"]);
         }
         dir
+    }
+
+    fn cmd(cd: &Path, cmd: &[&str]) {
+        let status = Command::new(cmd[0])
+            .args(&cmd[1..])
+            .stderr(Stdio::null())
+            .current_dir(cd)
+            .status()
+            .unwrap();
+        if !status.success() {
+            panic!("");
+        }
     }
 
     fn search_dependencies(path: &Path) -> anyhow::Result<()> {
