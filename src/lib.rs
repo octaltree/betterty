@@ -1,1 +1,1 @@
-mod typescript;
+pub mod typescript;

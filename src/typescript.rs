@@ -1,21 +1,20 @@
-mod dependencies;
-mod parser;
+pub mod dependencies;
+pub mod parser;
 
 use parser::Parsed;
 use std::{
     collections::{HashMap, VecDeque},
     fs,
-    ops::Deref,
     path::{Path, PathBuf}
 };
 
-struct Load<'a> {
+pub struct Load<'a> {
     root: &'a Path,
     parsed: HashMap<PathBuf, Parsed>,
     children: HashMap<PathBuf, Vec<Option<PathBuf>>>
 }
 
-fn load<'a>(file: &'a Path) -> anyhow::Result<Load<'a>> {
+pub fn load(file: &Path) -> anyhow::Result<Load<'_>> {
     let mut parsed: HashMap<PathBuf, Parsed> = HashMap::new();
     let mut children: HashMap<PathBuf, Vec<Option<PathBuf>>> = HashMap::new();
     let mut que: VecDeque<PathBuf> = vec![file.to_owned()].into();
@@ -150,9 +149,8 @@ mod tests {
         let Load {
             parsed, children, ..
         } = load(&dir.join("src/client/playwright.ts")).unwrap();
-        let files: Vec<_> = parsed.iter().map(|(f, _)| f).collect();
+        let files = parsed.iter().map(|(f, _)| f);
         let bad: Vec<_> = files
-            .into_iter()
             .filter_map(|f| {
                 let p = parsed.get(f);
                 let cs = children.get(f).into_iter().flatten();
@@ -175,7 +173,7 @@ mod tests {
     }
 
     fn prepare_target(tmp: &Path, commit: &str) -> PathBuf {
-        let dir = tmp.join(format!("betterty-playwright/{}", commit));
+        let dir = tmp.join(format!("betterty-playwright-{}", commit));
         Command::new("git")
             .args(&[
                 "clone",
@@ -196,6 +194,7 @@ mod tests {
         let status = Command::new(cmd[0])
             .args(&cmd[1..])
             .stderr(Stdio::null())
+            .stdout(Stdio::null())
             .current_dir(cd)
             .status()
             .unwrap();
