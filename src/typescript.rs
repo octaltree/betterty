@@ -60,7 +60,6 @@ mod tests {
             .collect();
         parsed.insert(path.to_owned(), (m, s, c));
         while let Some((p, d)) = que.pop_front() {
-            // dbg!((&p, d.specifier.as_ref()));
             if let Some(p) = dependencies::find(&p, d.specifier.as_ref()) {
                 if parsed.get(&p).is_none() {
                     let body = fs::read_to_string(&p)?;
