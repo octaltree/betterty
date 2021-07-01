@@ -6,23 +6,39 @@ use std::{
     path::{Path, PathBuf}
 };
 
+// fn search_dependencies(path: &Path) -> anyhow::Result<()> {
+//    let body = fs::read_to_string(path)?;
+//    let mut parsed = HashMap::new();
+//    let (m, s, c) = parser::parse_module(path.file_name().unwrap().to_str().unwrap(), &body)?;
+//    let mut que: VecDeque<_> = analyze_dependencies(&m, &s, &c)
+//        .into_iter()
+//        .map(|x| (path.to_owned(), x))
+//        .collect();
+//    parsed.insert(path.to_owned(), (m, s, c));
+//    while let Some((p, d)) = que.pop_front() {
+//        if let Some(p) = dependencies::find(&p, d.specifier.as_ref()) {
+//            if parsed.get(&p).is_none() {
+//                let body = fs::read_to_string(&p)?;
+//                let (m, s, c) =
+//                    parser::parse_module(path.file_name().unwrap().to_str().unwrap(), &body)?;
+//                let mut ds = analyze_dependencies(&m, &s, &c)
+//                    .into_iter()
+//                    .map(|x| (p.to_owned(), x))
+//                    .collect();
+//                que.append(&mut ds);
+//                parsed.insert(p.to_owned(), (m, s, c));
+//            }
+//        } else {
+//            dbg!(Err::<(), _>((p, d.specifier.as_ref())));
+//        }
+//    }
+//    Ok(())
+//}
+
+/// Only for posix path
 /// https://github.com/Microsoft/TypeScript-Handbook/blob/master/pages/Module%20Resolution.md
 /// https://nodejs.org/api/modules.html#modules_all_together
 /// https://github.com/microsoft/TypeScript/blob/837ed9669718fa3515aabc99974abe91f7254a3e/src/jsTyping/jsTyping.ts#L32
-pub(super) fn resolve_module_path(file: &Path, s: &str, node_modules: &Path) -> Option<PathBuf> {
-    let dir = file.parent().unwrap();
-    let ts = dir.join(format!("{}.ts", s)).canonicalize();
-    let dts = dir.join(format!("{}.d.ts", s)).canonicalize();
-    if let Ok(p) = ts {
-        Some(p)
-    } else if let Ok(p) = dts {
-        Some(p)
-    } else {
-        None
-    }
-}
-
-/// Only for posix path
 pub fn find(file: &Path, s: &str) -> Option<PathBuf> {
     let dir = file.parent()?;
     if let Some(m) = get_core_module(s) {
@@ -101,5 +117,3 @@ struct PackageJson {
     types: Option<String>,
     typings: Option<String>
 }
-
-struct Loader {}
