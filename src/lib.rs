@@ -1,7 +1,7 @@
 pub mod typescript;
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     path,
     path::{Path, PathBuf}
 };
@@ -19,14 +19,66 @@ pub fn convert(ts: typescript::Load<'_>, dir: &Path) -> anyhow::Result<Vec<(Path
 }
 
 fn destinations(root: &Path, files: &[&Path], dir: &Path) -> HashMap<PathBuf, PathBuf> {
-    files
+    let res: HashMap<_, _> = files
         .iter()
-        .map(|f| {
-            let mut cs = f.components();
-            consume_node_modules(&mut cs);
-            todo!()
+        .map(|&f| {
+            if f == root {
+                return (f.to_owned(), Path::new("lib.rs").to_owned());
+            }
+            let tail: PathBuf = {
+                let mut cs = f.components();
+                consume_node_modules(&mut cs);
+                cs.collect()
+            };
+            if tail == Path::new("") {
+                (f.to_owned(), relative(root, f))
+            } else {
+                (f.to_owned(), tail)
+            }
         })
-        .collect()
+        .map(|(f, r)| {
+            let r: PathBuf = eat_dots(r.components()).into_iter().collect();
+            let abs = dir.join(r);
+            (f, abs)
+        })
+        .collect();
+    // TODO: rename if conflict
+    assert_eq!(files.len(), res.iter().len());
+    res
+}
+
+fn relative<'a>(root: &Path, file: &'a Path) -> PathBuf {
+    let l: Vec<_> = root.components().into_iter().collect();
+    let r: Vec<_> = file.components().into_iter().collect();
+    let (cnt, _) = root
+        .components()
+        .zip(file.components())
+        .map(|(a, b)| a == b)
+        .fold((0, true), |(cnt, success), same| {
+            let success = success && same;
+            let cnt = if success { cnt + 1 } else { cnt };
+            (cnt, success)
+        });
+    use std::borrow::Cow;
+    let prefix = if l.len() - cnt <= 1 {
+        Cow::Borrowed("")
+    } else {
+        Cow::Owned((0..(l.len() - cnt - 1)).map(|_| "../").collect::<String>())
+    };
+    Path::new(&*prefix).join(r[cnt..].iter().collect::<PathBuf>())
+}
+
+fn eat_dots<'a>(components: impl Iterator<Item = path::Component<'a>>) -> Vec<path::Component<'a>> {
+    let mut que = components.collect::<VecDeque<_>>();
+    dbg!(&que);
+    while let Some(front) = que.front() {
+        if front == &path::Component::CurDir || front == &path::Component::ParentDir {
+            que.pop_front();
+        } else {
+            break;
+        }
+    }
+    que.into()
 }
 
 fn consume_node_modules(components: &mut path::Components<'_>) {
@@ -44,6 +96,17 @@ mod tests {
     use tempdir::TempDir;
 
     #[test]
+    fn can_eat_dots() {
+        assert_eq!(
+            eat_dots(Path::new("../utils/st.ts").components()),
+            [
+                path::Component::Normal("utils".as_ref()),
+                path::Component::Normal("st.ts".as_ref()),
+            ]
+        );
+    }
+
+    #[test]
     fn can_consume() {
         {
             let mut c = Path::new("/foo/node_modules/bar/hoge").components();
@@ -57,6 +120,22 @@ mod tests {
             let p: PathBuf = c.collect();
             assert_eq!(p, Path::new(""));
         }
+    }
+
+    #[test]
+    fn can_relative() {
+        assert_eq!(
+            relative(Path::new("/foo.ts"), Path::new("/bar.ts")),
+            Path::new("bar.ts")
+        );
+        assert_eq!(
+            relative(Path::new("/foo.ts"), Path::new("/foo/bar.ts")),
+            Path::new("foo/bar.ts")
+        );
+        assert_eq!(
+            relative(Path::new("/foo/bar.ts"), Path::new("/bar.ts")),
+            Path::new("../bar.ts")
+        );
     }
 
     #[test]
