@@ -53,16 +53,11 @@ fn analyze_module(path: &Path, source: &str) -> anyhow::Result<(Parsed, Vec<Opti
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        path::{Path, PathBuf},
-        process::{Command, Stdio}
-    };
+    use crate::test_utils::prepare_playwright;
 
     #[test]
     fn can_analyze_module() {
-        let tmp = std::env::temp_dir();
-        let commit = "e9246089";
-        let dir = prepare_target(&tmp, commit);
+        let dir = prepare_playwright("can_analyze_module", "e9246089");
         {
             let file = dir.join("src/utils/utils.ts");
             let (p, cs) = analyze_module(&file, &fs::read_to_string(&file).unwrap()).unwrap();
@@ -143,9 +138,7 @@ mod tests {
 
     #[test]
     fn can_load() {
-        let tmp = std::env::temp_dir();
-        let commit = "master";
-        let dir = prepare_target(&tmp, commit);
+        let dir = prepare_playwright("can_load", "master");
         let Load {
             parsed, children, ..
         } = load(&dir.join("src/client/playwright.ts")).unwrap();
@@ -170,37 +163,5 @@ mod tests {
             .collect();
         dbg!(&bad);
         assert!(bad.is_empty());
-    }
-
-    fn prepare_target(tmp: &Path, commit: &str) -> PathBuf {
-        let dir = tmp.join(format!("betterty-playwright-{}", commit));
-        Command::new("git")
-            .args(&[
-                "clone",
-                "https://github.com/microsoft/playwright",
-                &dir.display().to_string()
-            ])
-            .stderr(Stdio::null())
-            .status()
-            .unwrap();
-        cmd(&dir, &["git", "checkout", commit]);
-        if !dir.join("node_modules").exists() {
-            cmd(&dir, &["npm", "install"]);
-            cmd(&dir, &["npm", "run-script", "build"]);
-        }
-        dir
-    }
-
-    fn cmd(cd: &Path, cmd: &[&str]) {
-        let status = Command::new(cmd[0])
-            .args(&cmd[1..])
-            .stderr(Stdio::null())
-            .stdout(Stdio::null())
-            .current_dir(cd)
-            .status()
-            .unwrap();
-        if !status.success() {
-            panic!("");
-        }
     }
 }
