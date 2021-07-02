@@ -9,9 +9,9 @@ use std::{
 };
 
 pub struct Load<'a> {
-    root: &'a Path,
-    parsed: HashMap<PathBuf, Parsed>,
-    children: HashMap<PathBuf, Vec<Option<PathBuf>>>
+    pub root: &'a Path,
+    pub parsed: HashMap<PathBuf, Parsed>,
+    pub children: HashMap<PathBuf, Vec<Option<PathBuf>>>
 }
 
 pub fn load(file: &Path) -> anyhow::Result<Load<'_>> {
