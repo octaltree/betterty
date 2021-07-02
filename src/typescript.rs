@@ -186,6 +186,7 @@ mod tests {
         cmd(&dir, &["git", "checkout", commit]);
         if !dir.join("node_modules").exists() {
             cmd(&dir, &["npm", "install"]);
+            cmd(&dir, &["npm", "run-script", "build"]);
         }
         dir
     }

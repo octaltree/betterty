@@ -92,7 +92,12 @@ fn consume_node_modules(components: &mut path::Components<'_>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs::File, io::Write};
+    use std::{
+        collections::HashSet,
+        fs::File,
+        io::Write,
+        process::{Command, Stdio}
+    };
     use tempdir::TempDir;
 
     #[test]
@@ -137,6 +142,22 @@ mod tests {
             Path::new("../bar.ts")
         );
     }
+
+    //#[test]
+    // fn tmp() {
+    //    let root = Path::new("/home/octaltree/storage/repos/others/playwright/src/inprocess.ts");
+    //    let loaded = typescript::load(root).unwrap();
+    //    dbg!(destinations(
+    //        root,
+    //        &loaded
+    //            .children
+    //            .iter()
+    //            .filter(|(_, v)| v.is_empty())
+    //            .map(|(k, _)| -> &Path { k })
+    //            .collect::<Vec<_>>(),
+    //        Path::new("/tmp/foo")
+    //    ));
+    //}
 
     #[test]
     fn can_convert_blank() -> anyhow::Result<()> {
@@ -183,5 +204,95 @@ mod tests {
             )]
         );
         Ok(())
+    }
+
+    //#[test]
+    // fn no_dependences() -> anyhow::Result<()> {
+    //    let dir = prepare_master()?;
+    //    let root = dir.join("src/inprocess.ts");
+    //    let loaded = typescript::load(&root).unwrap();
+    //    let empties: HashSet<_> = loaded
+    //        .children
+    //        .iter()
+    //        .filter(|(_, v)| v.is_empty())
+    //        .map(|(k, _)| -> &Path { k })
+    //        .collect();
+    //    for p in [
+    //        dir.join("/src/client/events.ts"),
+    //        dir.join("/src/common/types.ts"),
+    //        dir.join("/src/generated/consoleApiSource.ts"),
+    //        dir.join("/src/generated/injectedScriptSource.ts"),
+    //        dir.join("/src/generated/recorderSource.ts"),
+    //        dir.join("/src/generated/utilityScriptSource.ts"),
+    //        dir.join("/src/server/common/domErrors.ts"),
+    //        dir.join("/src/server/common/utilityScriptSerializers.ts"),
+    //        dir.join("/src/server/injected/selectorEngine.ts"),
+    //        dir.join("/src/server/macEditingCommands.ts"),
+    //        dir.join("/src/server/snapshot/snapshotTypes.ts"),
+    //        dir.join("/src/server/supplements/har/har.ts"),
+    //        dir.join("/src/server/supplements/recorder/recorderActions.ts"),
+    //        dir.join("/src/server/usKeyboardLayout.ts"),
+    //        dir.join("/src/utils/errors.ts")
+    //    ] {
+    //        assert!(
+    //            empties.get(&p as &Path).is_some(),
+    //            "{} has dependencies",
+    //            p.display()
+    //        );
+    //    }
+
+    //    Ok(())
+    //}
+
+    fn prepare_master() -> anyhow::Result<PathBuf> {
+        let tmp = TempDir::new("betterty")?;
+        let dir = tmp.path().join("playwright");
+        Command::new("git")
+            .args(&[
+                "clone",
+                "https://github.com/microsoft/playwright",
+                &dir.display().to_string()
+            ])
+            .stderr(Stdio::null())
+            .status()
+            .unwrap();
+        cmd(&dir, &["git", "checkout", "master"]);
+        if !dir.join("node_modules").exists() {
+            cmd(&dir, &["npm", "install"]);
+            cmd(&dir, &["npm", "run-script", "build"]);
+        }
+        Ok(dir)
+    }
+
+    fn prepare_target(tmp: &Path, commit: &str) -> PathBuf {
+        let dir = tmp.join(format!("betterty-playwright-{}", commit));
+        Command::new("git")
+            .args(&[
+                "clone",
+                "https://github.com/microsoft/playwright",
+                &dir.display().to_string()
+            ])
+            .stderr(Stdio::null())
+            .status()
+            .unwrap();
+        cmd(&dir, &["git", "checkout", commit]);
+        if !dir.join("node_modules").exists() {
+            cmd(&dir, &["npm", "install"]);
+            cmd(&dir, &["npm", "run-script", "build"]);
+        }
+        dir
+    }
+
+    fn cmd(cd: &Path, cmd: &[&str]) {
+        let status = Command::new(cmd[0])
+            .args(&cmd[1..])
+            .stderr(Stdio::null())
+            .stdout(Stdio::null())
+            .current_dir(cd)
+            .status()
+            .unwrap();
+        if !status.success() {
+            panic!("");
+        }
     }
 }
