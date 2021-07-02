@@ -8,6 +8,11 @@ use std::{
 
 pub fn convert(ts: typescript::Load<'_>, dir: &Path) -> anyhow::Result<Vec<(PathBuf, syn::File)>> {
     let entry = dir.join("lib.rs");
+    let typescript::Load {
+        root,
+        parsed,
+        children
+    } = ts;
     Ok(vec![(
         dir.join("lib.rs"),
         syn::File {
@@ -137,7 +142,7 @@ pub mod test_utils {
 mod tests {
     use super::*;
     use crate::test_utils::prepare_playwright;
-    use std::{collections::HashSet, fs::File};
+    use std::{collections::HashSet, fs::File, io::Write};
     use tempdir::TempDir;
 
     #[test]
@@ -222,33 +227,44 @@ mod tests {
         Ok(())
     }
 
-    //#[test]
-    // fn can_convert_function() -> anyhow::Result<()> {
-    //    let tmp = TempDir::new("betterty")?;
-    //    let p = tmp.path().join("index.ts");
-    //    let mut f = File::create(&p)?;
-    //    f.write_all(r#"function foo(){}"#.as_bytes())?;
-    //    let loaded = typescript::load(&p)?;
-    //    dbg!(&loaded.parsed.get(&p).unwrap().ast);
-    //    dbg!(&loaded.parsed.get(&p).unwrap().comments);
-    //    let rs = convert(loaded, Path::new("/"))?;
-    //    assert_eq!(
-    //        rs,
-    //        [(
-    //            Path::new("/lib.rs").into(),
-    //            syn::File {
-    //                shebang: None,
-    //                attrs: Vec::new(),
-    //                items: vec![syn::Item::Fn(syn::parse_str::<syn::ItemFn>("fn foo(){}")?)]
-    //            }
-    //        )]
-    //    );
-    //    Ok(())
-    //}
+    #[test]
+    fn can_convert_function() -> anyhow::Result<()> {
+        let tmp = TempDir::new("betterty")?;
+        let p = tmp.path().join("index.ts");
+        let mut f = File::create(&p)?;
+        f.write_all(r#"function foo(){}"#.as_bytes())?;
+        let loaded = typescript::load(&p)?;
+        dbg!(&loaded.parsed.get(&p).unwrap().ast);
+        dbg!(&loaded.parsed.get(&p).unwrap().comments);
+        let rs = convert(loaded, Path::new("/"))?;
+        assert_eq!(
+            rs,
+            [(
+                Path::new("/lib.rs").into(),
+                syn::File {
+                    shebang: None,
+                    attrs: Vec::new(),
+                    items: vec![syn::Item::Fn(syn::parse_str::<syn::ItemFn>("fn foo(){}")?)]
+                }
+            )]
+        );
+        Ok(())
+    }
 
     #[test]
-    fn no_dependences() -> anyhow::Result<()> {
-        let dir = prepare_playwright("no_dependencies", "fe32d384");
+    fn can_convert_basic() -> anyhow::Result<()> {
+        let dir = no_dependences("can_convert_basic")?;
+        {
+            let root = dir.join("src/client/events.ts");
+            let loaded = typescript::load(&root).unwrap();
+            let result = convert(loaded, Path::new("/"))?;
+            assert_eq!(result.len(), 1);
+        }
+        Ok(())
+    }
+
+    fn no_dependences(id: &str) -> anyhow::Result<PathBuf> {
+        let dir = prepare_playwright(id, "fe32d384");
         let root = dir.join("src/inprocess.ts");
         let loaded = typescript::load(&root).unwrap();
         let empties: HashSet<_> = loaded
@@ -257,30 +273,27 @@ mod tests {
             .filter(|(_, v)| v.is_empty())
             .map(|(k, _)| -> &Path { k })
             .collect();
+        dbg!(&empties);
         for p in [
-            dir.join("/src/client/events.ts"),
-            dir.join("/src/common/types.ts"),
-            dir.join("/src/generated/consoleApiSource.ts"),
-            dir.join("/src/generated/injectedScriptSource.ts"),
-            dir.join("/src/generated/recorderSource.ts"),
-            dir.join("/src/generated/utilityScriptSource.ts"),
-            dir.join("/src/server/common/domErrors.ts"),
-            dir.join("/src/server/common/utilityScriptSerializers.ts"),
-            dir.join("/src/server/injected/selectorEngine.ts"),
-            dir.join("/src/server/macEditingCommands.ts"),
-            dir.join("/src/server/snapshot/snapshotTypes.ts"),
-            dir.join("/src/server/supplements/har/har.ts"),
-            dir.join("/src/server/supplements/recorder/recorderActions.ts"),
-            dir.join("/src/server/usKeyboardLayout.ts"),
-            dir.join("/src/utils/errors.ts")
+            dir.join("src/client/events.ts"),
+            dir.join("src/common/types.ts"),
+            dir.join("src/generated/consoleApiSource.ts"),
+            dir.join("src/generated/injectedScriptSource.ts"),
+            dir.join("src/generated/recorderSource.ts"),
+            dir.join("src/generated/utilityScriptSource.ts"),
+            dir.join("src/server/common/domErrors.ts"),
+            dir.join("src/server/common/utilityScriptSerializers.ts"),
+            dir.join("src/server/injected/selectorEngine.ts"),
+            dir.join("src/server/macEditingCommands.ts"),
+            dir.join("src/server/snapshot/snapshotTypes.ts"),
+            dir.join("src/server/supplements/har/har.ts"),
+            dir.join("src/server/supplements/recorder/recorderActions.ts"),
+            dir.join("src/server/usKeyboardLayout.ts"),
+            dir.join("src/utils/errors.ts")
         ] {
-            assert!(
-                empties.get(&p as &Path).is_none(),
-                "{} has dependencies",
-                p.display()
-            );
+            let is_empty = empties.get(&p as &Path).is_some();
+            assert!(is_empty, "{} has dependencies", p.display());
         }
-
-        Ok(())
+        Ok(dir)
     }
 }
