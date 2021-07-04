@@ -1,5 +1,6 @@
 pub mod typescript;
 
+use proc_macro2::Span;
 use std::{
     collections::{HashMap, VecDeque},
     path,
@@ -7,21 +8,67 @@ use std::{
 };
 
 pub fn convert(ts: typescript::Load<'_>, dir: &Path) -> anyhow::Result<Vec<(PathBuf, syn::File)>> {
-    let entry = dir.join("lib.rs");
     let typescript::Load {
         root,
         parsed,
         children
     } = ts;
-    Ok(vec![(
-        dir.join("lib.rs"),
-        syn::File {
-            shebang: None,
-            attrs: Vec::new(),
-            items: Vec::new()
-        }
-    )])
+    let files: Vec<_> = children.iter().map(|(k, _)| -> &Path { k }).collect();
+    let dests = destinations(root, &files, dir);
+    if files.len() != 1 {
+        return Ok(vec![]);
+    }
+    let dest = dests.get(root).unwrap();
+    let p = tmp(parsed.get(root).unwrap());
+    Ok(vec![(dest.to_owned(), p)])
 }
+
+fn tmp(parsed: &typescript::Parsed) -> syn::File {
+    use swc_ecma_ast as ast;
+    let typescript::Parsed { ast, .. } = parsed;
+    let items = ast.body.iter().fold(Vec::new(), |mut items, item| {
+        match item {
+            ast::ModuleItem::Stmt(ast::Stmt::Decl(ast::Decl::Fn(f))) => {
+                let attrs = vec![];
+                items.push(syn::Item::Fn(syn::ItemFn {
+                    attrs,
+                    vis: syn::Visibility::Inherited,
+                    sig: syn::Signature {
+                        constness: None,
+                        asyncness: None,
+                        unsafety: None,
+                        abi: None,
+                        fn_token: syn::token::Fn::default(),
+                        ident: ident(&f.ident),
+                        generics: syn::Generics {
+                            lt_token: None,
+                            params: syn::punctuated::Punctuated::default(),
+                            gt_token: None,
+                            where_clause: None
+                        },
+                        paren_token: syn::token::Paren::default(),
+                        inputs: syn::punctuated::Punctuated::default(),
+                        variadic: None,
+                        output: syn::ReturnType::Default
+                    },
+                    block: Box::new(syn::Block {
+                        brace_token: syn::token::Brace::default(),
+                        stmts: vec![]
+                    })
+                }));
+            }
+            _ => {}
+        }
+        items
+    });
+    syn::File {
+        shebang: None,
+        attrs: Vec::new(),
+        items
+    }
+}
+
+fn ident(x: &swc_ecma_ast::Ident) -> syn::Ident { syn::Ident::new(x.as_ref(), Span::call_site()) }
 
 fn destinations(root: &Path, files: &[&Path], dir: &Path) -> HashMap<PathBuf, PathBuf> {
     let res: HashMap<_, _> = files

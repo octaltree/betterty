@@ -1,7 +1,7 @@
 pub mod dependencies;
 pub mod parser;
 
-use parser::Parsed;
+pub use parser::Parsed;
 use std::{
     collections::{HashMap, VecDeque},
     fs,
